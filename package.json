@@ -1,8 +1,13 @@
 {
   "devDependencies": {
+    "concurrently": "^6.3.0",
     "shadow-cljs": "^2.11.23"
   },
   "dependencies": {
+    "@xstate/inspect": "^0.5.0",
     "xstate": "^4.25.0"
+  },
+  "scripts": {
+    "dev": "concurrently 'shadow-cljs server' 'shadow-cljs watch app'"
   }
 }
