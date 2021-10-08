@@ -1,25 +1,24 @@
 (ns starter.browser
   (:require ["xstate" :as xstate]
-            ["@xstate/inspect" :as xsi]))
+            ["@xstate/inspect" :as xsi]
+            [applied-science.js-interop :as j]))
 
 (def popoverseq-machine
   (xstate/createMachine
-   #js {:id "popoversequencer"
-        :initial "idle"
-        :context {:seen []}
-        :states (clj->js {"idle" {:on {:DISMISS {:target "ready"
-                                                 :actions [:trackSeen]}}}
-                          "ready" {:on {:DISMISS {:target "ready"
-                                                 :actions [:trackSeen]}}}})}
+   (clj->js {:id "popoversequencer"
+             :initial "idle"
+             :context {:seen {}}
+             :states {"idle" {:on {:DISMISS {:target "ready"
+                                             :actions [:trackSeen]}}}
+                      "ready" {:on {:DISMISS {:target "ready"
+                                              :actions [:trackSeen]}}}}})
    ;; Important that the list of actions is provided as second arg!
    ;; Error handling for missing actions is not great
    (clj->js
     {:actions {:trackSeen (xstate/assign (fn [context event]
-                                           (js/console.log :event (.-data event))
-                                           ;; The first time this logs context is of type PersistentArrayMap (expected)
-                                           ;; After the first "DISMISS" event this type information seems to have been lost
+                                           (js/console.log :seen-popover (j/get event :popover-id))
                                            (js/console.log :context context)
-                                           (update context :seen conj "foo")))}})
+                                           (j/assoc-in! context [:seen (j/get event :popover-id)] true)))}})
    ))
 
 (def popoverseq-service
@@ -51,6 +50,6 @@
 
  (js/console.log popoverseq-service)
 
- (.send popoverseq-service #js {:type "DISMISS" :data {:popover-id (str (gensym))}})
+ (.send popoverseq-service (clj->js {:type "DISMISS" :popover-id (str (gensym))}))
 
  )
