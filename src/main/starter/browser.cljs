@@ -1,6 +1,7 @@
 (ns starter.browser
   (:require ["xstate" :as xstate]
             ["@xstate/inspect" :as xsi]
+            [starter.xstate :as xs]
             [applied-science.js-interop :as j]))
 
 ;; API via React Context
@@ -13,6 +14,27 @@
 
 ;; Whats missing?
 ;; - Updates to seen that occur from different client / outside the state machine
+;; - Could be extended to allow a "force show" that puts showing items back on queue
+
+(def counter-machine
+  (xstate/createMachine
+   #js {:id "counter-machine"
+        :initial "start"
+        :context (xs/context {:some {:count 0}})
+        :states (clj->js {"start" {:on {:INC {:actions [:increment!]}
+                                        :DEC {:actions [:decrement!]}}}})}
+   (clj->js {:actions {:decrement! (xs/assign (fn [context event]
+                                                (js/console.log :dec-event (pr-str event))
+                                                (update-in context [:some :count] dec)))
+                       :increment! (xs/assign (fn [context event]
+                                                (js/console.log :inc-event (pr-str event))
+                                                (update-in context [:some :count] inc)))}})))
+
+;; The first action sucessfully updates the initial context, a second update
+;; then receives a context that has been "meddled with", i.e. it no longer is
+;; compatible with the various Clojure functions that would usually operate on
+;; maps.
+
 
 (def popoverseq-machine
   (xstate/createMachine
@@ -21,11 +43,15 @@
              :context {:seen {}
                        :showing nil
                        :queue []}
+             ;; order of actions:
+             ;; (1) exit of current state (2) actions of transition (3) entry of next state
              :states {"idle" {:on {:INITIALIZE {:target "ready"
                                                 :actions [:setSeen]}
                                    :REQUEST_POPOVER {:cond :should-queue?
                                                      :actions [:queue-popover!]}}}
-                      "ready" {:entry (xstate/send "MAYBE_SHOW_POPOVER")
+                      "ready" {:entry [{:cond :popover-available?
+                                        :actions (xstate/send "SHOW_POPOVER")}]
+                               #_(xstate/send "MAYBE_SHOW_POPOVER")
 
                                :on {:REQUEST_POPOVER [{:cond :should-queue?
                                                        :actions [:queue-popover! (xstate/send "SHOW_POPOVER")]}]
@@ -65,6 +91,7 @@
                                                 (j/assoc! context :showing nil)))
                :show-popover! (xstate/assign (fn [context _event]
                                                (-> context
+                                                   ;; TODO insert fancy logic to pick the most important popover from the queue
                                                    (j/assoc! :showing (first (j/get context :queue)))
                                                    (j/assoc! :queue (clj->js (rest (j/get context :queue)))))))
                :dismiss-popover! (xstate/assign (fn [context _event]
@@ -82,10 +109,10 @@
                                                   (j/assoc-in! context [:seen "foobar"] true)))}})))
 
 (defonce popoverseq-service
-  (-> popoverseq-machine
+  (-> counter-machine
       (xstate/interpret #js {:devTools true})
       (.onTransition (fn [state]
-                       (js/console.log :transition state)))))
+                       (js/console.log :transition (pr-str (j/get-in state [:context xs/context-key])))))))
 
 ;; start is called by init and after code reloading finishes
 (defn ^:dev/after-load start []
@@ -109,6 +136,9 @@
  (shadow/repl :app)
 
  (js/console.log popoverseq-service)
+
+ (.send popoverseq-service #js {:type "INC" :some "data"})
+ (.send popoverseq-service #js {:type "DEC" :foo "bar"})
 
  (.send popoverseq-service (clj->js {:type "DISMISS"}))
  (.send popoverseq-service (clj->js {:type "INITIALIZE"}))
