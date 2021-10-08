@@ -5,7 +5,8 @@
   "src/test"]
 
  :dependencies
- [[applied-science/js-interop "0.3.1"]]
+ [[applied-science/js-interop "0.3.1"]
+  [cljs-bean "1.7.0"]]
 
  :dev-http
  {8020 "public"}
