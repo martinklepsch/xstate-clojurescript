@@ -52,6 +52,7 @@
                                                      :actions [:initialize-seen!]}
                                         :REQUEST_POPOVER {:cond :should-queue?
                                                           :actions [:queue-popover!]}}}
+
                            "ready" {:entry (xstate/send "SHOW_POPOVER")
 
                                     :on {:REQUEST_POPOVER [{:cond :should-queue?
@@ -60,11 +61,8 @@
                                                          :target "showing-popover"
                                                          :actions [:show-popover!]}]}}
 
-                           "showing-popover" {:on {:DISMISS [{:cond :queue-empty?
-                                                              :target "ready"
-                                                              :actions [:dismiss-popover! :unset-showing!]}
-                                                             {:cond :popover-available?
-                                                              :actions [:dismiss-popover! :show-popover!]}]
+                           "showing-popover" {:on {:DISMISS [{:target "ready"
+                                                              :actions [:mark-seen! :unset-showing!]}]
                                                    :REQUEST_POPOVER {:cond :should-queue?
                                                                      :actions [:queue-popover!]}
                                                    :UNREQUEST_POPOVER [{:cond :currently-showing?
@@ -93,9 +91,9 @@
                                                ;; TODO insert fancy logic to pick the most important popover from the queue
                                                (assoc :showing (first queue))
                                                (update :queue (comp vec rest))))
-                          :dismiss-popover! (fn [{:keys [showing] :as context} _event]
-                                              (assert showing)
-                                              (update context :seen conj showing))
+                          :mark-seen! (fn [{:keys [showing] :as context} _event]
+                                        (assert showing)
+                                        (update context :seen conj showing))
                           :unqueue-popover! (fn [context {:keys [popover-id]}]
                                               (update context :queue #(vec (remove #{popover-id} %))))
                           :queue-popover! (fn [context event]
