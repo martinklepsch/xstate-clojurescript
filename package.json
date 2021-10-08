@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "shadow-cljs": "^2.11.23"
+  },
+  "dependencies": {
+    "xstate": "^4.25.0"
   }
 }
